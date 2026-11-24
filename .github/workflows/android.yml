@@ -1,0 +1,46 @@
+name: Build SiteMark Android APK
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/android.yml'
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Install Android SDK packages
+        run: sdkmanager 'platforms;android-35' 'build-tools;34.0.0'
+      - name: Build installable APK
+        run: bash build-android.sh
+      - name: Verify APK signature and package
+        run: |
+          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose android-artifacts/SiteMark-Android.apk
+          "$ANDROID_HOME/build-tools/34.0.0/aapt" dump badging android-artifacts/SiteMark-Android.apk > android-artifacts/manifest-info.txt
+          head -n 12 android-artifacts/manifest-info.txt
+          sha256sum android-artifacts/SiteMark-Android.apk > android-artifacts/SHA256SUMS.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SiteMark-Android
+          path: android-artifacts/
+      - name: Publish preview APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if gh release view android-v0.1.0 >/dev/null 2>&1; then
+            echo 'The initial preview release already exists. Retaining it; this run is available as an artifact.'
+          else
+            gh release create android-v0.1.0 android-artifacts/SiteMark-Android.apk android-artifacts/SHA256SUMS.txt --title 'SiteMark Android 0.1.0' --notes 'Installable Android 10+ preview APK with automatic camera, GPS address picker, timestamp watermark and native Android Gallery export. Debug-signed for testing; not a Google Play release.' --prerelease
+          fi
