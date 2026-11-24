@@ -54,8 +54,9 @@ public final class SiteMarkActivity extends Activity {
 
     @Override public void onCreate(Bundle saved) {
         super.onCreate(saved);
-        getWindow().setStatusBarColor(Color.rgb(21,25,30));
-        getWindow().setNavigationBarColor(Color.rgb(21,25,30));
+        getWindow().setStatusBarColor(Color.WHITE);
+        getWindow().setNavigationBarColor(Color.WHITE);
+        getWindow().getDecorView().setSystemUiVisibility(android.view.View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | android.view.View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR);
         web = new WebView(this);
         web.setBackgroundColor(Color.rgb(21,25,30));
         setContentView(web);

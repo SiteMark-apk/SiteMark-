@@ -1,5 +1,5 @@
 'use strict';
-const CACHE='sitemark-shell-v7';
+const CACHE='sitemark-shell-v8';
 const assets=['./index.html','./mobile.css','./mobile.js','./field.css','./field.js','./location.js','./places.js','./places.css','./launch.js','./launch.css','./simple.js','./simple.css','./manifest.webmanifest','./icon-camera-192.png','./icon-camera-512.png'];
 self.addEventListener('install',event=>{event.waitUntil((async()=>{const cache=await caches.open(CACHE);for(const path of assets){const response=await fetch(new Request(path,{cache:'reload'}));if(!response.ok||response.redirected)throw new Error('Offline asset unavailable: '+path);await cache.put(path,response);}await self.skipWaiting()})())});
 self.addEventListener('activate',event=>{event.waitUntil((async()=>{for(const key of await caches.keys())if(key.startsWith('sitemark-shell-')&&key!==CACHE)await caches.delete(key);await self.clients.claim()})())});

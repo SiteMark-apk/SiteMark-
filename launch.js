@@ -1,6 +1,6 @@
 'use strict';
 // Open the field camera directly, then stop it whenever the app is not visible.
-let autoAttempted=false,cameraStarting=false,cameraDenied=false,cameraEpoch=0,quickProjectJob=null;
+let autoAttempted=false,cameraStarting=false,cameraDenied=false,cameraEpoch=0,quickProjectJob=null,cameraFacing='environment';
 const launchCameraView=cameraView,launchNavigate=navigate,launchShoot=shoot,launchSave=saveFiles,launchStop=stopLive;
 function cameraMessage(title,description,button){const idle=main.querySelector('.finder-empty');if(!idle)return;const h=idle.querySelector('h2'),p=idle.querySelector('p'),b=byId('enable-camera');if(h)h.textContent=title;if(p)p.textContent=description;if(b){b.textContent=button;b.disabled=cameraStarting}}
 function activeCamera(){return ready&&screenMode==='camera'&&!document.hidden}
