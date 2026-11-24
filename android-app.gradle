@@ -1,0 +1,18 @@
+plugins { id 'com.android.application' version '8.7.3' }
+android {
+    namespace 'com.sitemark.camera'
+    compileSdk 35
+    defaultConfig {
+        applicationId 'com.sitemark.camera'
+        minSdk 29
+        targetSdk 34
+        versionCode 1
+        versionName '0.1.0'
+    }
+    compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+    buildTypes { debug { minifyEnabled false } }
+}
+dependencies {
+    implementation 'androidx.webkit:webkit:1.12.1'
+    implementation 'androidx.core:core:1.13.1'
+}
