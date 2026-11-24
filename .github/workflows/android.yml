@@ -45,8 +45,8 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          if gh release view android-v0.1.0 >/dev/null 2>&1; then
-            echo 'The initial preview release already exists. Retaining it; this run is available as an artifact.'
+          if gh release view android-v0.2.0 >/dev/null 2>&1; then
+            echo 'The preview release already exists. Retaining it; this run is available as an artifact.'
           else
-            gh release create android-v0.1.0 android-artifacts/SiteMark-Android.apk android-artifacts/SHA256SUMS.txt --title 'SiteMark Android 0.1.0' --notes 'Installable Android 10+ preview APK with automatic camera, GPS address picker, timestamp watermark and native Android Gallery export. Debug-signed for testing; not a Google Play release.' --prerelease
+            gh release create android-v0.2.0 android-artifacts/SiteMark-Android.apk android-artifacts/SHA256SUMS.txt --title 'SiteMark Android 0.2.0' --notes 'Camera-first layout: white controls, edge-to-edge viewfinder, large time and date, GPS address, photo preview, templates and native Android Gallery export. Android 10+ debug-signed preview.' --prerelease
           fi
