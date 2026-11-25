@@ -6,8 +6,8 @@ android {
         applicationId 'com.sitemark.camera'
         minSdk 29
         targetSdk 34
-        versionCode 5
-        versionName '0.3.2'
+        versionCode 6
+        versionName '0.4.0'
     }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     buildTypes { debug { minifyEnabled false } }
