@@ -141,6 +141,13 @@ public final class SiteMarkActivity extends Activity {
                         } else if ("print".equals(type)) {
                             PrintManager pm = (PrintManager)getSystemService(PRINT_SERVICE);
                             if (pm != null) pm.print("SiteMark inspection report", web.createPrintDocumentAdapter("SiteMark inspection report"), null);
+                        } else if ("sharePhotos".equals(type) || "shareCsv".equals(type)) {
+                            worker.execute(() -> {
+                                try {
+                                    final Intent share = prepareShare(command);
+                                    runOnUiThread(() -> { try { if (!isFinishing()) startActivity(Intent.createChooser(share,"Share SiteMark")); } catch(Exception unavailable) { try { reply.postMessage(result(id,false,"No sharing app available")); } catch(Exception ignored) {} } });
+                                } catch(Exception invalid) { runOnUiThread(() -> { try { reply.postMessage(result(id,false,"Could not prepare files for sharing")); } catch(Exception ignored) {} }); }
+                            });
                         } else if ("openLatest".equals(type) && lastGalleryUri != null) {
                             try { startActivity(new Intent(Intent.ACTION_VIEW).setDataAndType(lastGalleryUri,"image/jpeg").addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)); }
                             catch (Exception ignored) { Toast.makeText(this,"Open your phone Gallery, then SiteMark album",Toast.LENGTH_LONG).show(); }
@@ -159,7 +166,7 @@ public final class SiteMarkActivity extends Activity {
     private void loadHome() { if (!loaded) { loaded = true; web.loadUrl(HOME); } }
     private String result(String id, boolean ok, String message) { try { return new JSONObject().put("id",id).put("ok",ok).put("message",message).toString(); } catch (Exception ignored) { return "{}"; } }
 
-    private Uri saveJpeg(String data) throws IOException {
+    private byte[] decodeJpeg(String data) throws IOException {
         final String prefix = "data:image/jpeg;base64,";
         if (data == null || !data.startsWith(prefix) || data.length() > 24_000_000) throw new IOException("Invalid photo");
         byte[] bytes = Base64.decode(data.substring(prefix.length()), Base64.DEFAULT);
@@ -167,6 +174,39 @@ public final class SiteMarkActivity extends Activity {
         BitmapFactory.Options options = new BitmapFactory.Options(); options.inJustDecodeBounds = true;
         BitmapFactory.decodeByteArray(bytes,0,bytes.length,options);
         if (options.outWidth < 1 || options.outHeight < 1 || options.outWidth > 10000 || options.outHeight > 10000 || !"image/jpeg".equals(options.outMimeType)) throw new IOException("Invalid image dimensions");
+        return bytes;
+    }
+
+    private Intent prepareShare(JSONObject command) throws Exception {
+        final File directory = new File(getCacheDir(),"share-cache");
+        if (!directory.exists() && !directory.mkdirs()) throw new IOException("Share cache unavailable");
+        final java.util.ArrayList<Uri> uris = new java.util.ArrayList<>();
+        final boolean csv = "shareCsv".equals(command.optString("type"));
+        final String mime=csv?"text/csv":"image/jpeg";
+        if(csv){
+            String content=command.optString("csv");
+            if(content.isEmpty()||content.length()>2000000) throw new IOException("Invalid report");
+            File file=File.createTempFile("SiteMark-report-",".csv",directory);
+            try(java.io.FileOutputStream out=new java.io.FileOutputStream(file)){out.write(content.getBytes(java.nio.charset.StandardCharsets.UTF_8));}
+            uris.add(FileProvider.getUriForFile(this,getPackageName()+".fileprovider",file));
+        }else{
+            org.json.JSONArray images=command.optJSONArray("images");
+            if(images==null||images.length()<1||images.length()>8)throw new IOException("Invalid selection");
+            for(int i=0;i<images.length();i++){
+                byte[] bytes=decodeJpeg(images.getString(i));
+                File file=File.createTempFile("SiteMark-photo-",".jpg",directory);
+                try(java.io.FileOutputStream out=new java.io.FileOutputStream(file)){out.write(bytes);}
+                uris.add(FileProvider.getUriForFile(this,getPackageName()+".fileprovider",file));
+            }
+        }
+        Intent intent=new Intent(uris.size()==1?Intent.ACTION_SEND:Intent.ACTION_SEND_MULTIPLE).setType(mime);
+        if(uris.size()==1)intent.putExtra(Intent.EXTRA_STREAM,uris.get(0));else intent.putParcelableArrayListExtra(Intent.EXTRA_STREAM,uris);
+        ClipData clip=ClipData.newRawUri("SiteMark",uris.get(0));for(int i=1;i<uris.size();i++)clip.addItem(new ClipData.Item(uris.get(i)));
+        intent.setClipData(clip);intent.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);return intent;
+    }
+
+    private Uri saveJpeg(String data) throws IOException {
+        byte[] bytes=decodeJpeg(data);
         String name = "SiteMark_" + new SimpleDateFormat("yyyyMMdd_HHmmss_SSS",Locale.ROOT).format(new Date()) + "_" + UUID.randomUUID().toString().substring(0,6) + ".jpg";
         ContentValues values = new ContentValues();
         values.put(MediaStore.Images.Media.DISPLAY_NAME,name);
@@ -184,7 +224,7 @@ public final class SiteMarkActivity extends Activity {
         } catch (Exception e) { resolver.delete(uri,null,null); throw new IOException(e); }
     }
 
-    private void pruneCameraCache() { File dir = new File(getCacheDir(),"phone-camera"); File[] files = dir.listFiles(); if (files != null) for (File f:files) if (f.isFile() && System.currentTimeMillis()-f.lastModified()>86400000L) f.delete(); }
+    private void pruneCameraCache() { for(String sub:new String[]{"phone-camera","share-cache"}){File dir = new File(getCacheDir(),sub); File[] files = dir.listFiles(); if (files != null) for (File f:files) if (f.isFile() && System.currentTimeMillis()-f.lastModified()>86400000L) f.delete();} }
     @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] results) { super.onRequestPermissionsResult(requestCode,permissions,results); if(requestCode==PERMISSIONS)loadHome(); }
     @Override protected void onActivityResult(int requestCode,int resultCode,Intent data) {
         super.onActivityResult(requestCode,resultCode,data);
@@ -200,6 +240,6 @@ public final class SiteMarkActivity extends Activity {
     }
     @Override protected void onPause() { if(web!=null){web.evaluateJavascript("if(typeof stopLive==='function')stopLive();if(typeof stopAutoGPS==='function')stopAutoGPS();",null);web.onPause();}super.onPause(); }
     @Override protected void onResume() { super.onResume();if(web!=null){web.onResume();if(loaded)web.evaluateJavascript("if(typeof ready!=='undefined'&&ready&&screenMode==='camera'){cameraView();}",null);} }
-    @Override public void onBackPressed() { if(web==null){super.onBackPressed();return;}web.evaluateJavascript("(function(){if(typeof dialog!=='undefined'&&dialog.open){dialog.close();return true}if(typeof screenMode!=='undefined'&&screenMode!=='camera'){navigate('camera');return true}return false})()",v->{if(!"true".equals(v))finish();}); }
+    @Override public void onBackPressed() { if(web==null){super.onBackPressed();return;}web.evaluateJavascript("(function(){if(typeof dialog!=='undefined'&&dialog.open){if(typeof previewActive!=='undefined'&&previewActive)previewClose();else dialog.close();return true}if(typeof screenMode!=='undefined'&&screenMode!=='camera'){navigate('camera');return true}return false})()",v->{if(!"true".equals(v))finish();}); }
     @Override protected void onDestroy() { if(web!=null){web.destroy();web=null;}worker.shutdown();super.onDestroy(); }
 }
